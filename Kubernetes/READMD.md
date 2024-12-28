@@ -26,6 +26,8 @@ Kubernetes has emerged as the preferred orchestration tool for several reasons:
 ## Architecture of Kubernetes
 Kubernetes employs a master-worker architecture:
 
+![k8s Diagram](img/arch.gif)
+
 ### 1. **Master Node**
 Responsible for managing the Kubernetes cluster. Components include:
 - **API Server**: Facilitates communication between users and the cluster.
@@ -481,6 +483,8 @@ Kubernetes networking is fundamental for ensuring smooth communication between v
   - Share the same IP address.
   - Can communicate directly using `localhost` and exposed container ports.
 
+![k8s Diagram](img/intrapod.gif)
+
 #### Example:
 ```yaml
 apiVersion: v1
@@ -647,3 +651,655 @@ spec:
   - External IP provided by the load balancer.
   - `http://<EXTERNAL_IP>:80`
 
+----
+
+# Introduction to YAML Scripts and Kubernetes Manifest Files
+
+## Understanding YAML Scripts
+YAML (YAML Ain't Markup Language) is a human-readable data serialization format used extensively in Kubernetes for writing manifest files. It is used to define resources like Pods, Services, Deployments, and more.
+
+### Key Features of YAML
+- **Readable**: YAML is simple and easy to understand.
+- **Indentation-Based**: Proper indentation is crucial.
+- **Data Types**: Supports scalars (strings, numbers), lists, and dictionaries.
+
+### Example YAML Structure
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+  labels:
+    app: my-app
+spec:
+  containers:
+    - name: my-container
+      image: nginx:latest
+      ports:
+        - containerPort: 80
+```
+
+## Writing Manifest Files for Pods and Services
+Kubernetes uses manifest files to describe the desired state of resources in the cluster. These files are written in YAML.
+
+### Pod Manifest File
+A Pod is the smallest deployable unit in Kubernetes.
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+  labels:
+    app: my-app
+spec:
+  containers:
+    - name: my-container
+      image: nginx:latest
+      ports:
+        - containerPort: 80
+```
+**Explanation**:
+- `apiVersion`: The API version used (e.g., v1).
+- `kind`: The type of resource (e.g., Pod).
+- `metadata`: Metadata such as the name and labels.
+- `spec`: Specification of the Pod, including containers and their properties.
+
+### Service Manifest File
+Services expose Pods to the network and enable communication between them.
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  selector:
+    app: my-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP
+```
+**Explanation**:
+- `selector`: Matches the labels of the Pods to be exposed.
+- `ports`: Defines the service port and the target port on the Pod.
+- `type`: Specifies the service type (e.g., ClusterIP, NodePort).
+
+## Namespace
+Namespaces provide a way to divide cluster resources between multiple users or teams.
+
+### Default Namespaces
+- **default**: The default namespace for resources without a namespace.
+- **kube-system**: For Kubernetes system resources.
+- **kube-public**: For publicly accessible resources.
+
+### Creating a Namespace
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: my-namespace
+```
+
+## ReplicationController and ReplicaSet
+ReplicationControllers and ReplicaSets ensure that the specified number of Pod replicas are running at all times.
+
+### ReplicationController
+```yaml
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: my-rc
+spec:
+  replicas: 3
+  selector:
+    app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+        - name: my-container
+          image: nginx:latest
+```
+**Explanation**:
+- `replicas`: Specifies the desired number of Pods.
+- `selector`: Matches labels to identify Pods.
+- `template`: Describes the Pods to be created.
+
+### ReplicaSet
+```yaml
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: my-rs
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+        - name: my-container
+          image: nginx:latest
+```
+**Explanation**:
+- `matchLabels`: Provides a more flexible way of selecting Pods.
+
+### Differences Between ReplicationController and ReplicaSet
+| Feature               | ReplicationController                  | ReplicaSet                          |
+|-----------------------|----------------------------------------|-------------------------------------|
+| **Selector**          | Uses equality-based selectors only.   | Supports set-based and equality-based selectors. |
+| **Flexibility**       | Limited in matching Pods.             | More flexible in selecting Pods based on labels. |
+| **Usage**             | Older method, being phased out.       | Preferred in modern deployments.   |
+
+## Conclusion
+Understanding YAML scripts and Kubernetes resources like Namespaces, ReplicationControllers, and ReplicaSets is fundamental for managing workloads effectively. ReplicaSets provide enhanced capabilities and are generally preferred for production use.
+
+-----
+
+# Deployments vs StatefulSets, Writing Manifests, and Understanding DaemonSets
+
+## Introduction
+In Kubernetes, different controllers manage specific workloads depending on the requirements of applications. Among the most commonly used are Deployments, StatefulSets, and DaemonSets. Each serves unique purposes in orchestrating containerized applications.
+
+---
+
+## Deployments vs StatefulSets
+
+### Deployments
+A **Deployment** ensures a specified number of pod replicas are running at any given time. Deployments are best suited for stateless applications.
+
+#### Features of Deployments
+- Stateless nature, meaning all pods are interchangeable.
+- Easy scaling and updates with zero downtime.
+- Fast rollback capability.
+- Pods are recreated with new identities upon termination.
+
+#### Use Cases
+- Web servers.
+- APIs.
+- Microservices with no data dependency.
+
+### StatefulSets
+A **StatefulSet** is used for applications requiring unique identities and persistent storage for each pod. These are suited for stateful applications.
+
+#### Features of StatefulSets
+- Maintains a stable identity for each pod.
+- Supports persistent storage using PVCs (PersistentVolumeClaims).
+- Ensures ordered deployment, scaling, and deletion of pods.
+- Pod names are deterministic (e.g., `pod-0`, `pod-1`).
+
+#### Use Cases
+- Databases (e.g., MySQL, MongoDB).
+- Distributed systems (e.g., Kafka, ZooKeeper).
+- Applications requiring strict ordering.
+
+#### Key Differences Between Deployments and StatefulSets
+| Feature                | Deployment                 | StatefulSet              |
+|------------------------|----------------------------|--------------------------|
+| Nature                | Stateless                 | Stateful                |
+| Pod Identity          | Interchangeable           | Unique and Stable       |
+| Scaling Behavior      | Independent Pods          | Ordered Scaling         |
+| Storage               | Non-persistent            | Persistent Volumes      |
+| Update Strategy       | Rolling Updates           | Ordered Updates         |
+
+---
+
+## Stateless vs Stateful Applications
+
+### Stateless Applications
+- Do not retain data between sessions.
+- Pods are interchangeable and can be terminated or replaced without affecting the application.
+- Example: A web server serving static pages.
+
+### Stateful Applications
+- Require data persistence and unique identities.
+- Replacement pods need to access the same persistent storage and retain their identities.
+- Example: A database like PostgreSQL where data must be retained even if the pod restarts.
+
+---
+
+## Writing Manifests
+
+### Manifest for a Deployment
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.21.6
+        ports:
+        - containerPort: 80
+```
+
+### Manifest for a StatefulSet
+```yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: web
+spec:
+  serviceName: "nginx"
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.21.6
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: www
+          mountPath: /usr/share/nginx/html
+  volumeClaimTemplates:
+  - metadata:
+      name: www
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
+```
+
+---
+
+## Deployment Strategies
+
+### Recreate Strategy
+- Terminates all existing pods before creating new ones.
+- Suitable for non-critical updates.
+
+### Rolling Update Strategy
+- Updates pods incrementally.
+- Ensures minimal downtime and availability during updates.
+
+### Canary Deployment
+- Deploys a small subset of new pods alongside existing ones to test the update.
+
+### Blue-Green Deployment
+- Creates a new set of pods ("blue") while the old set ("green") remains active, enabling a smooth transition.
+
+---
+
+## Understanding DaemonSets
+
+A **DaemonSet** ensures that a copy of a specific pod runs on all or selected nodes within a cluster. DaemonSets are typically used for system-level applications.
+
+### Features of DaemonSets
+- Runs one pod per node.
+- Automatically schedules pods on newly added nodes.
+- Ensures uninterrupted system monitoring and logging.
+
+### Use Cases
+- Log collection (e.g., Fluentd, Logstash).
+- Monitoring (e.g., Prometheus Node Exporter).
+- Network plugins (e.g., Calico, Weave).
+
+### Manifest for a DaemonSet
+```yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-exporter
+spec:
+  selector:
+    matchLabels:
+      app: node-exporter
+  template:
+    metadata:
+      labels:
+        app: node-exporter
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: node01
+      containers:
+      - name: node-exporter
+        image: prom/node-exporter:latest
+        ports:
+        - containerPort: 9100
+```
+
+---
+
+## Practical Notes for Students
+
+### Hands-On Steps
+1. **Deploying a Deployment**:
+   - Apply the Deployment manifest using `kubectl apply -f <deployment-manifest.yaml>`.
+   - Verify the pods using `kubectl get pods`.
+   - Scale the Deployment with `kubectl scale deployment nginx-deployment --replicas=5`.
+
+2. **Deploying a StatefulSet**:
+   - Apply the StatefulSet manifest using `kubectl apply -f <statefulset-manifest.yaml>`.
+   - Check pod identities using `kubectl get pods`.
+   - Ensure persistent storage by observing created PVCs with `kubectl get pvc`.
+
+3. **Deploying a DaemonSet**:
+   - Apply the DaemonSet manifest using `kubectl apply -f <daemonset-manifest.yaml>`.
+   - Verify one pod per node using `kubectl get pods -o wide`.
+
+### Troubleshooting Tips
+- For StatefulSets, check persistent volume status if pods fail to start.
+- Ensure proper node labeling when deploying DaemonSets for specific nodes.
+- Always test scaling and rolling updates to validate configurations.
+
+---
+
+By understanding and practicing these Kubernetes concepts, students can confidently manage real-world applications using Deployments, StatefulSets, and DaemonSets. For further clarification, explore the official Kubernetes documentation or try more complex setups.
+
+----
+
+# Kubernetes ConfigMap and Secret with Practical Steps
+
+This guide explains how to use ConfigMap and Secret resources in Kubernetes to manage configuration data and sensitive information. It includes step-by-step instructions, practical examples, and detailed notes for students.
+
+---
+
+## 1. Introduction
+
+### What is a ConfigMap?
+A **ConfigMap** is a Kubernetes resource used to store non-confidential data as key-value pairs. It helps decouple configuration data from application code.
+
+### What is a Secret?
+A **Secret** is a Kubernetes resource designed to store confidential data, such as passwords or API keys, in a secure and encoded format. Secrets are encoded using Base64, providing a layer of obfuscation but not encryption.
+
+### Why Use ConfigMap and Secret?
+- **Separation of Concerns:** Decouples configuration from application logic.
+- **Ease of Updates:** Configuration changes do not require rebuilding or redeploying applications.
+- **Security:** Secrets ensure sensitive data is handled securely.
+
+---
+
+## 2. Practical Steps
+
+### Step 1: Create the ConfigMap
+
+#### Manifest File
+Save the following content in a file named `configmap.yaml`:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata: 
+  name: my-vars
+data:
+  DB_USER: "Admin"
+  DB_PASSWORD: "Redhat"
+```
+
+#### Apply the ConfigMap
+Run the following command to create the ConfigMap in your cluster:
+
+```bash
+kubectl apply -f configmap.yaml
+```
+
+#### Verify the ConfigMap
+View the created ConfigMap:
+
+```bash
+kubectl get configmap my-vars -o yaml
+```
+
+### Step 2: Create the Secret
+
+#### Manifest File
+Save the following content in a file named `secret.yaml`:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata: 
+  name: my-sec
+data:
+  DB_USER: "QWRtaW4="       # Base64 encoded value of "Admin"
+  DB_PASSWORD: "UmVkaGF0"   # Base64 encoded value of "Redhat"
+```
+
+#### Apply the Secret
+Run the following command to create the Secret in your cluster:
+
+```bash
+kubectl apply -f secret.yaml
+```
+
+#### Verify the Secret
+To check the Secret:
+
+```bash
+kubectl get secret my-sec -o yaml
+```
+
+Note: The values will appear base64-encoded. To decode, use:
+
+```bash
+echo "QWRtaW4=" | base64 --decode
+```
+
+---
+
+## 3. Using ConfigMap and Secret in a Pod
+
+### Example Pod Manifest
+
+Create a file named `pod-with-config-and-secret.yaml` with the following content:
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-config-secret
+spec:
+  containers:
+  - name: test-container
+    image: nginx
+    env:
+    - name: DB_USER
+      valueFrom:
+        configMapKeyRef:
+          name: my-vars
+          key: DB_USER
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: my-sec
+          key: DB_PASSWORD
+```
+
+### Apply the Pod Manifest
+
+```bash
+kubectl apply -f pod-with-config-and-secret.yaml
+```
+
+### Verify the Pod Environment Variables
+
+```bash
+kubectl exec pod-with-config-secret -- printenv | grep DB_
+```
+
+---
+
+## 4. Notes and Best Practices
+
+### ConfigMap Notes
+1. **Non-Confidential Data:** ConfigMaps should not store sensitive data.
+2. **Dynamic Updates:** ConfigMaps can be updated dynamically, and changes can reflect in running Pods if the configuration is mounted as a volume.
+3. **Avoid Overloading:** Use ConfigMaps for lightweight configurations to prevent complexity.
+
+### Secret Notes
+1. **Secure Handling:** Avoid storing Secrets in plain text files. Use tools like `kubectl` to manage them.
+2. **Encryption:** Enable encryption at rest for Secrets in your cluster for additional security.
+3. **Access Control:** Use RBAC to restrict access to Secrets.
+
+---
+
+## 5. Conclusion
+
+By using ConfigMaps and Secrets, you can efficiently manage configuration and sensitive data in Kubernetes. Practice creating and applying these resources to deepen your understanding. Always follow best practices to ensure security and maintainability.
+
+---
+
+# Kubernetes Persistent Volumes (PV) and Persistent Volume Claims (PVC) with Dynamic Volumes (EBS)
+
+This guide provides a step-by-step explanation for achieving persistent storage using Kubernetes Persistent Volumes (PV), Persistent Volume Claims (PVC), and dynamic provisioning using AWS Elastic Block Store (EBS).
+
+---
+
+## 1. Introduction
+
+### Persistent Volume (PV)
+A **Persistent Volume** is a storage resource in a Kubernetes cluster that provides persistent storage, independent of Pod lifecycles. It is defined and managed by the cluster administrator.
+
+### Persistent Volume Claim (PVC)
+A **Persistent Volume Claim** is a request for storage by a user. Pods use PVCs to access PVs.
+
+### Dynamic Provisioning
+Dynamic provisioning automatically creates PVs based on a PVC when a StorageClass is specified. This is particularly useful for cloud-based storage systems like AWS EBS.
+
+---
+
+## 2. Practical Steps
+
+### Step 1: Create a StorageClass for AWS EBS
+
+#### Manifest File
+Save the following content in a file named `storageclass.yaml`:
+
+```yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ebs-sc
+provisioner: kubernetes.io/aws-ebs
+parameters:
+  type: gp2
+  fsType: ext4
+```
+
+#### Apply the StorageClass
+Run the following command to create the StorageClass:
+
+```bash
+kubectl apply -f storageclass.yaml
+```
+
+#### Verify the StorageClass
+```bash
+kubectl get storageclass
+```
+
+### Step 2: Create a Persistent Volume Claim (PVC)
+
+#### Manifest File
+Save the following content in a file named `pvc.yaml`:
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ebs-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: ebs-sc
+```
+
+#### Apply the PVC
+Run the following command to create the PVC:
+
+```bash
+kubectl apply -f pvc.yaml
+```
+
+#### Verify the PVC
+```bash
+kubectl get pvc
+```
+
+### Step 3: Use the PVC in a Pod
+
+#### Manifest File
+Save the following content in a file named `pod-with-pvc.yaml`:
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-ebs
+spec:
+  containers:
+  - name: app-container
+    image: nginx
+    volumeMounts:
+    - mountPath: "/data"
+      name: ebs-volume
+  volumes:
+  - name: ebs-volume
+    persistentVolumeClaim:
+      claimName: ebs-pvc
+```
+
+#### Apply the Pod Manifest
+```bash
+kubectl apply -f pod-with-pvc.yaml
+```
+
+#### Verify the Pod
+```bash
+kubectl get pods
+```
+
+### Step 4: Check the Persistent Storage
+Log into the Pod and verify the mounted volume:
+
+```bash
+kubectl exec pod-with-ebs -- ls /data
+```
+
+---
+
+## 3. Conclusion
+
+By following these steps, you can achieve persistent storage in Kubernetes using PV, PVC, and dynamic provisioning with AWS EBS. This setup ensures data persistence beyond the lifecycle of individual Pods and simplifies storage management in your Kubernetes cluster.
+
+---
+
+## Notes for Students
+- **StorageClass**: Defines how storage is provisioned dynamically.
+- **AccessModes**: Determines how a volume can be accessed (e.g., ReadWriteOnce).
+- **Dynamic vs Static Provisioning**: Dynamic provisioning creates PVs on demand, while static provisioning uses pre-defined PVs.
+- **AWS EBS**: Ensure your nodes have IAM roles with permissions to create EBS volumes.
+
+Practice these steps on a cloud-based Kubernetes cluster to understand how persistent storage works.
