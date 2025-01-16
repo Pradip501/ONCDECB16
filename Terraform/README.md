@@ -249,8 +249,379 @@ A backup of the previous state file.
 A hidden directory containing provider plugins and other metadata.
 
 ---
+## Refer Diagram:
+
+![k8s Diagram](Images/2025-01-09%2008.48.18.gif)
+
+---
 
 ## Additional Notes
 - Always review the `terraform plan` output before applying changes.
 - Use version control (e.g., Git) to manage your Terraform configurations.
 - Secure sensitive data using Terraform variables and secret management tools.
+
+
+
+# Terraform Script to Deploy Security Group with HEREDOC in UserData
+
+This guide covers the deployment of a Security Group using Terraform and explains the HEREDOC concept in UserData along with the key blocks in the script.
+
+---
+
+## 1. Introduction to Security Groups
+A **Security Group** acts as a virtual firewall for your instance to control inbound and outbound traffic. Terraform allows you to define and manage Security Groups using Infrastructure as Code.
+
+---
+
+## 2. Terraform Script for Security Group
+
+### Script
+```hcl
+provider "aws" {
+  region = "us-east-1"
+}
+
+resource "aws_security_group" "web_sg" {
+  name_prefix = "web-sg-"
+  description = "Allow inbound HTTP and SSH traffic"
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "web-sg"
+  }
+}
+```
+
+---
+
+## 3. HEREDOC in UserData
+
+### What is HEREDOC?
+HEREDOC (**Here Document**) is a multi-line string syntax in Terraform used to define large blocks of text or commands. It is often utilized in `UserData` to pass startup scripts to cloud instances.
+
+### Example with UserData
+Below is an example of using HEREDOC within an EC2 instance resource:
+
+```hcl
+resource "aws_instance" "web_server" {
+  ami           = "ami-12345678"
+  instance_type = "t2.micro"
+
+  user_data = <<-EOF
+    #!/bin/bash
+    echo "Hello, World!" > /var/www/html/index.html
+    yum install -y httpd
+    systemctl start httpd
+    systemctl enable httpd
+  EOF
+
+  tags = {
+    Name = "web-server"
+  }
+}
+```
+
+### HEREDOC Syntax
+- **`<<-EOF`**: Begins the HEREDOC. The `-` allows indentation.
+- **Content**: The script or text.
+- **`EOF`**: Ends the HEREDOC block.
+
+---
+
+## 4. Key Blocks in the Terraform Script
+
+### Provider Block
+The `provider` block specifies the cloud provider to manage resources.
+
+#### Example:
+```hcl
+provider "aws" {
+  region = "us-east-1"
+}
+```
+- **`region`**: Defines the AWS region for resource deployment.
+
+### Resource Block
+The `resource` block defines the actual infrastructure components.
+
+#### Example:
+```hcl
+resource "aws_security_group" "web_sg" {
+  name_prefix = "web-sg-"
+  description = "Allow inbound HTTP and SSH traffic"
+}
+```
+- **`name_prefix`**: Prefix for the Security Group name.
+- **`ingress`/`egress`**: Rules for inbound and outbound traffic.
+
+### Variable Block
+The `variable` block is used to parameterize values, making the script reusable.
+
+#### Example:
+```hcl
+variable "region" {
+  default = "us-east-1"
+}
+```
+- **`default`**: Specifies a default value.
+
+### Data Block
+The `data` block retrieves existing resources.
+
+#### Example:
+```hcl
+data "aws_ami" "latest" {
+  most_recent = true
+  owners      = ["self"]
+}
+```
+- **`most_recent`**: Fetches the latest AMI.
+
+### Output Block
+The `output` block displays resource attributes after execution.
+
+#### Example:
+```hcl
+output "security_group_id" {
+  value = aws_security_group.web_sg.id
+}
+```
+- **`value`**: Specifies the attribute to output.
+
+---
+
+## 5. Applying the Script
+
+### Steps:
+1. Initialize Terraform:
+   ```bash
+   terraform init
+   ```
+
+2. Validate the script:
+   ```bash
+   terraform validate
+   ```
+
+3. Plan the execution:
+   ```bash
+   terraform plan
+   ```
+
+4. Apply the changes:
+   ```bash
+   terraform apply
+   ```
+
+5. Verify the Security Group in the AWS Console.
+
+---
+
+## 6. Conclusion
+This guide demonstrated how to create a Security Group in AWS using Terraform, explained HEREDOC for `UserData`, and detailed the key blocks used in Terraform scripts. By practicing these steps, students can enhance their understanding of Terraform and Infrastructure as Code.
+
+-------
+# Terraform Modules and Dependencies
+
+## What is a Terraform Module?
+A **Terraform module** is a container for multiple resources that are used together. A module can include one or more `.tf` files in a directory and is a way to organize and reuse infrastructure configurations. Modules are particularly useful for creating reusable and standardized infrastructure components.
+
+### Benefits of Using Modules
+- **Reusability**: Define common configurations once and reuse them.
+- **Maintainability**: Break down complex configurations into smaller, manageable pieces.
+- **Scalability**: Easily replicate infrastructure for different environments (e.g., dev, staging, prod).
+- **Collaboration**: Simplify collaboration by standardizing infrastructure code.
+
+---
+
+## Example Modules for VPC, Subnet, and EC2
+
+### Module: VPC
+#### `modules/vpc/main.tf`
+```hcl
+variable "vpc_cidr" {}
+variable "tags" {}
+
+resource "aws_vpc" "main" {
+  cidr_block = var.vpc_cidr
+
+  tags = merge({
+    Name = "main-vpc"
+  }, var.tags)
+}
+
+output "vpc_id" {
+ value = aws_vpc.main.id
+}
+```
+
+#### `modules/vpc/variables.tf`
+```hcl
+variable "vpc_cidr" {
+ default = "10.0.0.0/16"
+ description = "The CIDR block for the VPC."
+}
+
+variable "tags" {
+ type        = map(string)
+ default     = {}
+ description = "Additional tags for the VPC."
+}
+```
+
+### Module: Subnet
+#### `modules/subnet/main.tf`
+```hcl
+variable "vpc_id" {}
+variable "subnet_cidr" {}
+
+resource "aws_subnet" "main" {
+  vpc_id     = var.vpc_id
+  cidr_block = var.subnet_cidr
+  tags = {
+    Name = "main-subnet"
+  }
+}
+
+output "subnet_id" {
+  value = aws_subnet.main.id
+}
+```
+
+#### `modules/subnet/variables.tf`
+```hcl
+variable "vpc_id" {
+  description = "The VPC ID where the subnet will be created."
+}
+
+variable "subnet_cidr" {
+  default     = "10.0.1.0/24"
+  description = "The CIDR block for the subnet."
+}
+```
+
+### Module: EC2
+#### `modules/ec2/main.tf`
+```hcl
+variable "subnet_id" {}
+variable "ami" {}
+variable "instance_type" {}
+
+resource "aws_instance" "main" {
+  ami           = var.ami
+  instance_type = var.instance_type
+  subnet_id     = var.subnet_id
+
+  tags = {
+    Name = "main-instance"
+  }
+}
+
+output "instance_id" {
+  value = aws_instance.main.id
+}
+```
+
+#### `modules/ec2/variables.tf`
+```hcl
+variable "subnet_id" {
+  description = "The Subnet ID where the instance will be launched."
+}
+
+variable "ami" {
+  description = "The AMI ID to use for the instance."
+}
+
+variable "instance_type" {
+  default     = "t2.micro"
+  description = "The instance type for the EC2 instance."
+}
+```
+
+---
+
+## Types of Dependencies
+
+### Implicit Dependencies
+Terraform automatically handles resource dependencies based on references between resources.
+Example:
+```hcl
+resource "aws_instance" "example" {
+  subnet_id = aws_subnet.main.id  # Implicit dependency on the subnet
+}
+```
+
+### Explicit Dependencies
+Use `depends_on` to define dependencies explicitly.
+Example:
+```hcl
+resource "aws_instance" "example" {
+  ami           = "ami-123456"
+  instance_type = "t2.micro"
+  depends_on    = [aws_vpc.main]  # Explicit dependency on the VPC
+}
+```
+
+---
+
+## Terraform Blocks Overview
+
+### `terraform` Block
+Defines Terraform settings, including backend configuration and required providers.
+Example:
+```hcl
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 4.0"
+    }
+  }
+
+  backend "s3" {
+    bucket = "my-terraform-state"
+    key    = "state.tfstate"
+    region = "us-west-2"
+  }
+}
+```
+
+### `module` Block
+Used to call and configure a module.
+Example:
+```hcl
+module "vpc" {
+  source   = "./modules/vpc"
+  vpc_cidr = "10.0.0.0/16"
+  tags     = { Environment = "Dev" }
+}
+```
+
+### `output` Block
+Defines outputs that can be accessed after applying the configuration.
+Example:
+```hcl
+output "vpc_id" {
+  value = module.vpc.vpc_id
+}
+
